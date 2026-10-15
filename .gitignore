@@ -1,0 +1,18 @@
+# Gradle
+.gradle/
+build/
+/build
+app/build/
+/captures
+
+# Android SDK location (machine-specific)
+/local.properties
+
+# IDE
+*.iml
+/.idea/
+.externalNativeBuild
+.cxx
+
+# OS
+.DS_Store
