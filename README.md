@@ -29,6 +29,9 @@ Messages/Dialer apps use to show work contacts in the personal profile.
   **photo**.
 - **Appends a configurable suffix** to the surname (default `-wc`) so synced
   work contacts are visually distinct and safely identifiable.
+- **Applies an optional label** (a contact group) to every synced contact so
+  they can be found grouped together. Configured in Settings; leave it empty to
+  apply no label.
 - **Re-syncs** on demand with full add/update/delete/conflict handling (below).
 - **Deletes safely** — synced contacts can be removed individually or all at
   once, behind a strict ownership + suffix guard so a genuine personal contact
@@ -68,6 +71,12 @@ the app treats it as "channel unavailable" and performs **no deletions**.
 
 Changing the suffix in Settings triggers a rename pass that rewrites the
 surname of every synced contact to use the new suffix.
+
+Settings also holds an optional **Label**: a contact-group title applied to
+every synced contact (into this app's dedicated local account) so they can be
+browsed as a group. Leaving it empty applies no label. The label is applied on
+each create/update, so a changed label takes effect on new syncs and on the
+next **Re-sync all** for existing contacts.
 
 ---
 
@@ -170,12 +179,12 @@ app/src/main/java/com/example/workcontactssync/
   work/WorkContactsRepository.kt  enterprise-filter reads (search / sweep)
   db/SyncedContact.kt             sync-state model + SyncState enum
   db/SyncStateStore.kt            SQLite store + DAO (baselines)
-  settings/SettingsStore.kt       DataStore: configurable suffix
+  settings/SettingsStore.kt       DataStore: configurable suffix + label
   contacts/ContactWriter.kt       batched writes to the local account
   sync/SyncEngine.kt              orchestration + decision table
   ui/MainActivity.kt              search, multi-select, sync actions
   ui/WorkContactsAdapter.kt       RecyclerView adapter (checkboxes, badges)
-  ui/SettingsActivity.kt          suffix setting + build date
+  ui/SettingsActivity.kt          suffix + label settings + build date
 probe-archive/MainActivity.kt     archived diagnostic probe (not compiled)
 DESIGN.md                         full design + empirical constraints
 ```

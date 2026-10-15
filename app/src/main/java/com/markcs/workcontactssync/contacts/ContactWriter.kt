@@ -7,10 +7,12 @@ import android.content.Context
 import android.net.Uri
 import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.Email
+import android.provider.ContactsContract.CommonDataKinds.GroupMembership
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.CommonDataKinds.Photo
 import android.provider.ContactsContract.CommonDataKinds.StructuredName
 import android.provider.ContactsContract.Data
+import android.provider.ContactsContract.Groups
 import android.provider.ContactsContract.RawContacts
 import com.markcs.workcontactssync.work.ContentHash
 import com.markcs.workcontactssync.work.WorkContact
@@ -39,8 +41,12 @@ class ContactWriter(context: Context) {
     /**
      * Create a new personal RawContact for a work contact (Req 4).
      * Returns the new raw/aggregate ids and the baseline personal hash.
+     *
+     * @param label optional group/label title; when non-blank, the contact is
+     *   added to a group with that title (in our local account) so it shows up
+     *   under that label. Blank means no label is applied.
      */
-    fun createContact(work: WorkContact, identifier: String): WriteResult {
+    fun createContact(work: WorkContact, identifier: String, label: String = ""): WriteResult {
         val ops = ArrayList<ContentProviderOperation>()
         val rawIndex = 0
 
@@ -92,6 +98,16 @@ class ContactWriter(context: Context) {
             )
         }
 
+        val groupId = groupIdForLabel(label)
+        if (groupId != null) {
+            ops.add(
+                dataInsert(rawIndex)
+                    .withValue(Data.MIMETYPE, GroupMembership.CONTENT_ITEM_TYPE)
+                    .withValue(GroupMembership.GROUP_ROW_ID, groupId)
+                    .build()
+            )
+        }
+
         val results = applyBatchChunked(ops)
         val rawContactId = ContentUris.parseId(results.first().uri!!)
         val contactId = lookupContactId(rawContactId)
@@ -103,7 +119,7 @@ class ContactWriter(context: Context) {
      * work values and re-apply the suffix (Req 5b). Implemented as delete all
      * data rows + reinsert, which is simplest and correct for our owned rows.
      */
-    fun updateContact(rawContactId: Long, work: WorkContact, identifier: String): WriteResult {
+    fun updateContact(rawContactId: Long, work: WorkContact, identifier: String, label: String = ""): WriteResult {
         val ops = ArrayList<ContentProviderOperation>()
         // remove existing data rows for this raw contact
         ops.add(
@@ -153,6 +169,16 @@ class ContactWriter(context: Context) {
                     .build()
             )
         }
+        val groupId = groupIdForLabel(label)
+        if (groupId != null) {
+            ops.add(
+                ContentProviderOperation.newInsert(Data.CONTENT_URI)
+                    .withValue(Data.RAW_CONTACT_ID, rawContactId)
+                    .withValue(Data.MIMETYPE, GroupMembership.CONTENT_ITEM_TYPE)
+                    .withValue(GroupMembership.GROUP_ROW_ID, groupId)
+                    .build()
+            )
+        }
         applyBatchChunked(ops)
         val contactId = lookupContactId(rawContactId)
         return WriteResult(rawContactId, contactId, personalHash(work))
@@ -196,6 +222,41 @@ class ContactWriter(context: Context) {
     }
 
     // --- guards & lookups ---
+
+    /**
+     * Resolve the group row id for a label title in our own local account,
+     * creating the group if necessary. Returns null for a blank label (meaning
+     * "no label", so no GroupMembership row is written).
+     *
+     * The group lives in the same dedicated local account as the contacts, so
+     * it stays device-local and out of cloud backup, consistent with the rest
+     * of the synced data.
+     */
+    private fun groupIdForLabel(label: String): Long? {
+        val title = label.trim()
+        if (title.isEmpty()) return null
+
+        resolver.query(
+            Groups.CONTENT_URI,
+            arrayOf(Groups._ID),
+            "${Groups.ACCOUNT_TYPE} = ? AND ${Groups.ACCOUNT_NAME} = ? AND ${Groups.TITLE} = ? AND ${Groups.DELETED} = 0",
+            arrayOf(ACCOUNT_TYPE, ACCOUNT_NAME, title),
+            null
+        )?.use { c ->
+            if (c.moveToFirst()) return c.getLong(0)
+        }
+
+        val uri = resolver.insert(
+            Groups.CONTENT_URI,
+            android.content.ContentValues().apply {
+                put(Groups.ACCOUNT_TYPE, ACCOUNT_TYPE)
+                put(Groups.ACCOUNT_NAME, ACCOUNT_NAME)
+                put(Groups.TITLE, title)
+                put(Groups.GROUP_VISIBLE, 1)
+            }
+        ) ?: return null
+        return ContentUris.parseId(uri)
+    }
 
     private fun isOwnedByUs(rawContactId: Long): Boolean {
         resolver.query(

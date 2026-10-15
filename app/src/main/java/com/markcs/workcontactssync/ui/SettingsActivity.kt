@@ -56,6 +56,27 @@ class SettingsActivity : AppCompatActivity() {
         }
         root.addView(input)
 
+        // --- Label setting ---
+        root.addView(TextView(this).apply {
+            text = "Label"
+            textSize = 18f
+            setPadding(0, 32, 0, 8)
+        })
+        root.addView(TextView(this).apply {
+            text = "Optional. When set, this label (a contact group) is added to " +
+                "every contact copied into your personal profile, so you can find " +
+                "them grouped together. Leave empty to apply no label."
+            textSize = 13f
+            alpha = 0.75f
+            setPadding(0, 0, 0, 16)
+        })
+
+        val labelInput = EditText(this).apply {
+            hint = "e.g. Work"
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+        }
+        root.addView(labelInput)
+
         val saveBtn = Button(this).apply {
             text = "Save"
             setOnClickListener {
@@ -64,11 +85,16 @@ class SettingsActivity : AppCompatActivity() {
                     Toast.makeText(this@SettingsActivity, "Identifier cannot be empty", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
+                val labelValue = labelInput.text.toString().trim()
                 lifecycleScope.launch {
-                    withContext(Dispatchers.IO) { settings.setIdentifier(value) }
+                    withContext(Dispatchers.IO) {
+                        settings.setIdentifier(value)
+                        settings.setLabel(labelValue)
+                    }
+                    val labelMsg = if (labelValue.isEmpty()) "no label" else "label \"$labelValue\""
                     Toast.makeText(
                         this@SettingsActivity,
-                        "Saved \"$value\". Run Re-sync all to apply renames.",
+                        "Saved \"$value\" ($labelMsg). Run Re-sync all to apply.",
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -91,11 +117,13 @@ class SettingsActivity : AppCompatActivity() {
 
         setContentView(root)
 
-        // Prefill the current identifier.
+        // Prefill the current identifier and label.
         lifecycleScope.launch {
             val current = withContext(Dispatchers.IO) { settings.getIdentifier() }
             input.setText(current)
             input.setSelection(current.length)
+            val currentLabel = withContext(Dispatchers.IO) { settings.getLabel() }
+            labelInput.setText(currentLabel)
         }
     }
 

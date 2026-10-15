@@ -57,11 +57,16 @@ profile, with a configurable surname suffix, and re-sync semantics
   upsert/update/delete/getAll/getByLookupKey/setSelected. Stores the two
   baselines workContentHash + personalContentHash (the 3-way merge basis).
 - `settings/SettingsStore.kt` — DataStore. workContactIdentifier (default "-wc"),
-  validated non-empty (it is the delete safety guard).
+  validated non-empty (it is the delete safety guard). Also `label` (default
+  "", KEY "work_contact_label"): optional contact-group title applied to every
+  synced contact; blank = not applied (no validation).
 - `contacts/ContactWriter.kt` — writes to a dedicated LOCAL account
   (ACCOUNT_TYPE="com.markcs.workcontactssync.local",
   ACCOUNT_NAME="Work Contacts (synced)"). createContact/updateContact (batched
-  ContentProviderOperation, MAX_BATCH 450), renameSurname, deleteIfOwned (guard:
+  ContentProviderOperation, MAX_BATCH 450; both take optional `label` arg and
+  write a GroupMembership row via groupIdForLabel, which find-or-creates a
+  Group with that title in our local account; blank label = no row),
+  renameSurname, deleteIfOwned (guard:
   isOwnedByUs + familyEndsWith suffix), personalHashFromProvider (reads live
   rows, strips suffix), readPhotoBytes (streams from photo_uri).
 - `sync/SyncEngine.kt` — orchestration + decision table:
@@ -86,8 +91,10 @@ profile, with a configurable surname suffix, and re-sync semantics
   name/phones/emails + "✓ synced" badge. setAllSelected/allSelected/
   selectedCount/selectedContacts/hasRows.
 - `ui/SettingsActivity.kt` — separate Settings PAGE (not a dialog): the
-  identifier suffix option (prefilled, Save, non-empty validation) + explanatory
-  text + "Build date: <BuildConfig.BUILD_TIME>" shown at the bottom. Up nav to Main.
+  identifier suffix option (prefilled, Save, non-empty validation) + a Label
+  field (optional contact-group title, prefilled, blank allowed) + explanatory
+  text + "Build date: <BuildConfig.BUILD_TIME>" shown at the bottom. The single
+  Save button persists both the suffix and the label. Up nav to Main.
 
 ## Resources / manifest
 - Launcher icon: user's Gemini image at `res/drawable/ic_launcher_image.jpg`

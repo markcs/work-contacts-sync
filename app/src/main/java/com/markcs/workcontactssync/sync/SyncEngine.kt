@@ -61,12 +61,13 @@ class SyncEngine(
      */
     suspend fun syncSelection(selected: List<WorkContact>, searchTerm: String): SyncReport {
         val identifier = settings.getIdentifier()
+        val label = settings.getLabel()
         var created = 0
         var updated = 0
         for (work in selected) {
             val existing = store.getByLookupKey(work.lookupKey)
             if (existing == null) {
-                val res = writer.createContact(work, identifier)
+                val res = writer.createContact(work, identifier, label)
                 store.upsert(
                     SyncedContact(
                         workLookupKey = work.lookupKey,
@@ -89,7 +90,7 @@ class SyncEngine(
                 // already tracked: ensure selected, update if work changed
                 store.setSelected(work.lookupKey, true)
                 if (work.contentHash() != existing.workContentHash) {
-                    val res = writer.updateContact(existing.personalRawContactId, work, identifier)
+                    val res = writer.updateContact(existing.personalRawContactId, work, identifier, label)
                     store.update(
                         existing.copy(
                             selected = true,
@@ -157,6 +158,7 @@ class SyncEngine(
      */
     suspend fun resync(): SyncReport {
         val identifier = settings.getIdentifier()
+        val label = settings.getLabel()
         val tracked = store.getAll()
 
         var renamed = 0
@@ -224,7 +226,7 @@ class SyncEngine(
 
                 workChanged && !personalChanged -> {
                     // Req 5b: work changed, personal untouched -> overwrite.
-                    val res = writer.updateContact(sc.personalRawContactId, work, identifier)
+                    val res = writer.updateContact(sc.personalRawContactId, work, identifier, label)
                     store.update(
                         sc.copy(
                             displayNameBase = work.familyName ?: "",
@@ -271,8 +273,9 @@ class SyncEngine(
     /** Resolve a 5c conflict by taking the work version (overwrite personal). */
     suspend fun resolveTakeWork(conflict: Conflict) {
         val identifier = settings.getIdentifier()
+        val label = settings.getLabel()
         val sc = store.getByLookupKey(conflict.lookupKey) ?: return
-        val res = writer.updateContact(sc.personalRawContactId, conflict.work, identifier)
+        val res = writer.updateContact(sc.personalRawContactId, conflict.work, identifier, label)
         store.update(
             sc.copy(
                 displayNameBase = conflict.work.familyName ?: "",
