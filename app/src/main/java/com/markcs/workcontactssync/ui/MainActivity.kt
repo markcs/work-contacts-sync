@@ -1,4 +1,4 @@
-package com.example.workcontactssync.ui
+package com.markcs.workcontactssync.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -16,11 +16,11 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.workcontactssync.contacts.ContactWriter
-import com.example.workcontactssync.db.SyncStateStore
-import com.example.workcontactssync.settings.SettingsStore
-import com.example.workcontactssync.sync.SyncEngine
-import com.example.workcontactssync.work.WorkContactsRepository
+import com.markcs.workcontactssync.contacts.ContactWriter
+import com.markcs.workcontactssync.db.SyncStateStore
+import com.markcs.workcontactssync.settings.SettingsStore
+import com.markcs.workcontactssync.sync.SyncEngine
+import com.markcs.workcontactssync.work.WorkContactsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

@@ -1,4 +1,4 @@
-package com.example.workcontactssync.settings
+package com.markcs.workcontactssync.settings
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit

@@ -1,4 +1,4 @@
-package com.example.workcontactssync.db
+package com.markcs.workcontactssync.db
 
 import android.content.ContentValues
 import android.content.Context

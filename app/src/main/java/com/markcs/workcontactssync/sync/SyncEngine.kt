@@ -1,13 +1,13 @@
-package com.example.workcontactssync.sync
+package com.markcs.workcontactssync.sync
 
 import android.content.Context
-import com.example.workcontactssync.contacts.ContactWriter
-import com.example.workcontactssync.db.SyncState
-import com.example.workcontactssync.db.SyncStateStore
-import com.example.workcontactssync.db.SyncedContact
-import com.example.workcontactssync.settings.SettingsStore
-import com.example.workcontactssync.work.WorkContact
-import com.example.workcontactssync.work.WorkContactsRepository
+import com.markcs.workcontactssync.contacts.ContactWriter
+import com.markcs.workcontactssync.db.SyncState
+import com.markcs.workcontactssync.db.SyncStateStore
+import com.markcs.workcontactssync.db.SyncedContact
+import com.markcs.workcontactssync.settings.SettingsStore
+import com.markcs.workcontactssync.work.WorkContact
+import com.markcs.workcontactssync.work.WorkContactsRepository
 
 /**
  * Orchestrates sync between the work profile (read-only, via the enterprise

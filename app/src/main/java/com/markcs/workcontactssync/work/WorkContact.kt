@@ -1,4 +1,4 @@
-package com.example.workcontactssync.work
+package com.markcs.workcontactssync.work
 
 import android.net.Uri
 

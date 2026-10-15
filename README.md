@@ -152,7 +152,7 @@ search), select the contacts you want, and tap **Sync selected**.
   create/update/delete/conflict actions.
 - **ContactWriter** — applies actions via batched `ContentProviderOperation`
   into a dedicated local account
-  (`com.example.workcontactssync.local`), keeping work data out of cloud backup
+  (`com.markcs.workcontactssync.local`), keeping work data out of cloud backup
   and giving the deletion guard a strong ownership signal.
 - **UI** — classic Android Views: search & multi-select, a Settings page for the
   suffix, and conflict-resolution dialogs.

@@ -1,4 +1,4 @@
-package com.example.workcontactssync.db
+package com.markcs.workcontactssync.db
 
 /** Lifecycle state of a synced contact (see DESIGN.md §4). */
 enum class SyncState { SYNCED, PENDING_DELETE, CONFLICT }

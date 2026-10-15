@@ -30,7 +30,7 @@ profile, with a configurable surname suffix, and re-sync semantics
   unchanged. Migrate to Room/Compose only if explicitly requested.
 
 ## Module / build facts
-- Namespace & applicationId: `com.example.workcontactssync`
+- Namespace & applicationId: `com.markcs.workcontactssync`
 - minSdk 30, compileSdk 34, Kotlin via AGP 8.5.2 / Kotlin 1.9.24, Gradle 8.9.
 - `versionCode` is derived from build time (minutes since 2026-01-01) and
   `versionName`/`BuildConfig.BUILD_TIME` carry the timestamp — so every build is
@@ -44,7 +44,7 @@ profile, with a configurable surname suffix, and re-sync semantics
 - No adb device is reachable from this environment — runtime behavior cannot be
   verified here; only the build is verifiable.
 
-## Source files (app/src/main/java/com/example/workcontactssync/)
+## Source files (app/src/main/java/com/markcs/workcontactssync/)
 - `work/WorkContact.kt` — WorkContact/WorkPhone/WorkEmail domain models +
   ContentHash.sha256 + contentHash() for change detection.
 - `work/WorkContactsRepository.kt` — the ONLY class touching enterprise URIs.
@@ -59,7 +59,7 @@ profile, with a configurable surname suffix, and re-sync semantics
 - `settings/SettingsStore.kt` — DataStore. workContactIdentifier (default "-wc"),
   validated non-empty (it is the delete safety guard).
 - `contacts/ContactWriter.kt` — writes to a dedicated LOCAL account
-  (ACCOUNT_TYPE="com.example.workcontactssync.local",
+  (ACCOUNT_TYPE="com.markcs.workcontactssync.local",
   ACCOUNT_NAME="Work Contacts (synced)"). createContact/updateContact (batched
   ContentProviderOperation, MAX_BATCH 450), renameSurname, deleteIfOwned (guard:
   isOwnedByUs + familyEndsWith suffix), personalHashFromProvider (reads live

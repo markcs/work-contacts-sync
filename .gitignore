@@ -8,6 +8,11 @@ app/build/
 # Android SDK location (machine-specific)
 /local.properties
 
+# Signing secrets (never commit)
+/keystore.properties
+*.jks
+*.keystore
+
 # IDE
 *.iml
 /.idea/

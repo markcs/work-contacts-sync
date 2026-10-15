@@ -1,4 +1,4 @@
-package com.example.workcontactssync.ui
+package com.markcs.workcontactssync.ui
 
 import android.view.Gravity
 import android.view.View
@@ -7,7 +7,7 @@ import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import com.example.workcontactssync.work.WorkContact
+import com.markcs.workcontactssync.work.WorkContact
 
 /** Row model: a work contact + whether it's selected + whether already synced. */
 data class WorkRow(

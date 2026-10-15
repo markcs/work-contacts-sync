@@ -1,5 +1,6 @@
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -16,11 +17,11 @@ val buildVersionCode: Int =
     ((Date().time - 1767225600000L) / 60000L).toInt()
 
 android {
-    namespace = "com.example.workcontactssync"
+    namespace = "com.markcs.workcontactssync"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.workcontactssync"
+        applicationId = "com.markcs.workcontactssync"
         minSdk = 30
         targetSdk = 34
         // Derive a monotonically increasing versionCode from the build time
@@ -37,9 +38,35 @@ android {
         buildConfig = true
     }
 
+    // Release signing. Secrets live in keystore.properties (gitignored) or env
+    // vars; falls back to no signing config if neither is present (so a clean
+    // checkout without the keystore still configures/builds a debug APK).
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    val keystoreProperties = Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+    }
+
+    signingConfigs {
+        create("release") {
+            val kFile = keystoreProperties["KEYSTORE_FILE"] as String? ?: System.getenv("KEYSTORE_FILE")
+            val kPass = keystoreProperties["KEYSTORE_PASSWORD"] as String? ?: System.getenv("KEYSTORE_PASSWORD")
+            val kAlias = keystoreProperties["KEY_ALIAS"] as String? ?: System.getenv("KEY_ALIAS")
+            val kKeyPass = keystoreProperties["KEY_PASSWORD"] as String? ?: System.getenv("KEY_PASSWORD")
+
+            if (kFile != null && kPass != null && kAlias != null && kKeyPass != null) {
+                storeFile = file(kFile)
+                storePassword = kPass
+                keyAlias = kAlias
+                keyPassword = kKeyPass
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

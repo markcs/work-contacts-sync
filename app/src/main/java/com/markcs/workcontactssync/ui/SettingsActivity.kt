@@ -1,4 +1,4 @@
-package com.example.workcontactssync.ui
+package com.markcs.workcontactssync.ui
 
 import android.os.Bundle
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -10,8 +10,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.example.workcontactssync.BuildConfig
-import com.example.workcontactssync.settings.SettingsStore
+import com.markcs.workcontactssync.BuildConfig
+import com.markcs.workcontactssync.settings.SettingsStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

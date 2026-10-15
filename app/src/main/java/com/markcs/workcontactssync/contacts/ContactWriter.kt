@@ -1,4 +1,4 @@
-package com.example.workcontactssync.contacts
+package com.markcs.workcontactssync.contacts
 
 import android.content.ContentProviderOperation
 import android.content.ContentResolver
@@ -12,8 +12,8 @@ import android.provider.ContactsContract.CommonDataKinds.Photo
 import android.provider.ContactsContract.CommonDataKinds.StructuredName
 import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.RawContacts
-import com.example.workcontactssync.work.ContentHash
-import com.example.workcontactssync.work.WorkContact
+import com.markcs.workcontactssync.work.ContentHash
+import com.markcs.workcontactssync.work.WorkContact
 import java.io.ByteArrayOutputStream
 
 /**
@@ -355,7 +355,7 @@ class ContactWriter(context: Context) {
 
     companion object {
         // Dedicated local (device-only) account that this app owns.
-        const val ACCOUNT_TYPE = "com.example.workcontactssync.local"
+        const val ACCOUNT_TYPE = "com.markcs.workcontactssync.local"
         const val ACCOUNT_NAME = "Work Contacts (synced)"
         private const val MAX_BATCH = 450
     }
