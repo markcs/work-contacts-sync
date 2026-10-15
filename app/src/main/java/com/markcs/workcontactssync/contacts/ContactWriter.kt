@@ -204,6 +204,38 @@ class ContactWriter(context: Context) {
     }
 
     /**
+     * Apply (or clear) the contact-group label on an existing synced contact
+     * WITHOUT rewriting its name/phones/emails/photo. Used by the re-sync label
+     * pass when only the Settings label changed.
+     *
+     * Removes any existing GroupMembership rows for this raw contact, then adds
+     * one for the new label (unless the label is blank, which leaves it with no
+     * group = "no label"). Only touches our own owned contact.
+     */
+    fun applyLabel(rawContactId: Long, label: String) {
+        val ops = ArrayList<ContentProviderOperation>()
+        ops.add(
+            ContentProviderOperation.newDelete(Data.CONTENT_URI)
+                .withSelection(
+                    "${Data.RAW_CONTACT_ID} = ? AND ${Data.MIMETYPE} = ?",
+                    arrayOf(rawContactId.toString(), GroupMembership.CONTENT_ITEM_TYPE)
+                )
+                .build()
+        )
+        val groupId = groupIdForLabel(label)
+        if (groupId != null) {
+            ops.add(
+                ContentProviderOperation.newInsert(Data.CONTENT_URI)
+                    .withValue(Data.RAW_CONTACT_ID, rawContactId)
+                    .withValue(Data.MIMETYPE, GroupMembership.CONTENT_ITEM_TYPE)
+                    .withValue(GroupMembership.GROUP_ROW_ID, groupId)
+                    .build()
+            )
+        }
+        applyBatchChunked(ops)
+    }
+
+    /**
      * Delete a synced personal contact (Req 5a) ONLY if the safety guard passes:
      *   1. the RawContact is in OUR dedicated local account, AND
      *   2. its family name ends with the expected suffix.

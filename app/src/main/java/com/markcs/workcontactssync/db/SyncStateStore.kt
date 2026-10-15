@@ -28,6 +28,7 @@ class SyncStateStore(context: Context) :
                 $COL_GIVEN TEXT,
                 $COL_SEARCH TEXT NOT NULL,
                 $COL_IDENTIFIER TEXT NOT NULL,
+                $COL_LABEL TEXT NOT NULL DEFAULT '',
                 $COL_WORK_HASH TEXT NOT NULL,
                 $COL_WORK_TS INTEGER NOT NULL,
                 $COL_PERSONAL_HASH TEXT NOT NULL,
@@ -40,8 +41,13 @@ class SyncStateStore(context: Context) :
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE")
-        onCreate(db)
+        // Additive migrations only — never drop the table, or we would orphan
+        // every already-synced personal contact (losing the ownership/baseline
+        // records the delete guard and three-way merge rely on).
+        if (oldVersion < 2) {
+            // v2: add the contact-group label applied at last write.
+            db.execSQL("ALTER TABLE $TABLE ADD COLUMN $COL_LABEL TEXT NOT NULL DEFAULT ''")
+        }
     }
 
     fun upsert(c: SyncedContact): Long {
@@ -86,6 +92,7 @@ class SyncStateStore(context: Context) :
         put(COL_GIVEN, givenName)
         put(COL_SEARCH, searchTerm)
         put(COL_IDENTIFIER, identifierAtSync)
+        put(COL_LABEL, labelAtSync)
         put(COL_WORK_HASH, workContentHash)
         put(COL_WORK_TS, workUpdatedTimestamp)
         put(COL_PERSONAL_HASH, personalContentHash)
@@ -103,6 +110,7 @@ class SyncStateStore(context: Context) :
         givenName = getStringOrNull(COL_GIVEN),
         searchTerm = getString(getColumnIndexOrThrow(COL_SEARCH)),
         identifierAtSync = getString(getColumnIndexOrThrow(COL_IDENTIFIER)),
+        labelAtSync = getStringOrNull(COL_LABEL) ?: "",
         workContentHash = getString(getColumnIndexOrThrow(COL_WORK_HASH)),
         workUpdatedTimestamp = getLong(getColumnIndexOrThrow(COL_WORK_TS)),
         personalContentHash = getString(getColumnIndexOrThrow(COL_PERSONAL_HASH)),
@@ -118,7 +126,7 @@ class SyncStateStore(context: Context) :
 
     companion object {
         private const val DB_NAME = "sync_state.db"
-        private const val DB_VERSION = 1
+        private const val DB_VERSION = 2
 
         private const val TABLE = "synced_contact"
         private const val COL_ID = "id"
@@ -129,6 +137,7 @@ class SyncStateStore(context: Context) :
         private const val COL_GIVEN = "given_name"
         private const val COL_SEARCH = "search_term"
         private const val COL_IDENTIFIER = "identifier_at_sync"
+        private const val COL_LABEL = "label_at_sync"
         private const val COL_WORK_HASH = "work_content_hash"
         private const val COL_WORK_TS = "work_updated_ts"
         private const val COL_PERSONAL_HASH = "personal_content_hash"

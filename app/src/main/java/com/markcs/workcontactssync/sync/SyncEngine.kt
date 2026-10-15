@@ -77,6 +77,7 @@ class SyncEngine(
                         givenName = work.givenName,
                         searchTerm = reFindTerm(work, searchTerm),
                         identifierAtSync = identifier,
+                        labelAtSync = label,
                         workContentHash = work.contentHash(),
                         workUpdatedTimestamp = work.workUpdatedTimestamp,
                         personalContentHash = res.personalContentHash,
@@ -97,6 +98,7 @@ class SyncEngine(
                             workContentHash = work.contentHash(),
                             workUpdatedTimestamp = work.workUpdatedTimestamp,
                             personalContentHash = res.personalContentHash,
+                            labelAtSync = label,
                             state = SyncState.SYNCED,
                             lastSyncedAt = System.currentTimeMillis()
                         )
@@ -185,6 +187,24 @@ class SyncEngine(
             }
         }
 
+        // Label-change pass: the label is a Settings value, not work/personal
+        // content, so a label change does NOT move either content hash and
+        // would otherwise be missed by the change-detection below. Apply it
+        // directly (like the suffix rename) to any contact whose applied label
+        // differs from the current setting.
+        for (sc in store.getAll()) {
+            if (sc.labelAtSync != label) {
+                writer.applyLabel(sc.personalRawContactId, label)
+                store.update(
+                    sc.copy(
+                        labelAtSync = label,
+                        lastSyncedAt = System.currentTimeMillis()
+                    )
+                )
+                updated++
+            }
+        }
+
         // Re-fetch each tracked contact's current work state.
         // Build a map lookupKey -> current WorkContact (null if gone).
         val current = HashMap<String, WorkContact?>()
@@ -235,6 +255,7 @@ class SyncEngine(
                             workUpdatedTimestamp = work.workUpdatedTimestamp,
                             personalContentHash = res.personalContentHash,
                             identifierAtSync = identifier,
+                            labelAtSync = label,
                             state = SyncState.SYNCED,
                             lastSyncedAt = System.currentTimeMillis()
                         )
@@ -284,6 +305,7 @@ class SyncEngine(
                 workUpdatedTimestamp = conflict.work.workUpdatedTimestamp,
                 personalContentHash = res.personalContentHash,
                 identifierAtSync = identifier,
+                labelAtSync = label,
                 state = SyncState.SYNCED,
                 lastSyncedAt = System.currentTimeMillis()
             )

@@ -51,11 +51,21 @@ profile, with a configurable surname suffix, and re-sync semantics
   search(term), refetchByTerm(term,lookupKey), and sweepAll(onProgress,
   isCancelled) which iterates seeds a..z then 0..9 (SWEEP_SEEDS) and unions
   results deduped by lookupKey. splitName() parses "Family, Given".
+  HARDENING: all three enterprise queries use explicit projections (first col
+  _ID) and go through safeQuery(), which catches RuntimeException so a work
+  profile that is OFF/paused (proxy throws "column id is missing in the
+  returned cursor" etc.) yields empty results instead of crashing; the
+  channel-unavailable guard then prevents any deletes.
 - `db/SyncedContact.kt` — data class + SyncState enum (SYNCED/PENDING_DELETE/CONFLICT).
   Has `searchTerm` field used to re-find a contact on re-sync.
 - `db/SyncStateStore.kt` — SQLiteOpenHelper, table `synced_contact`. DAO:
   upsert/update/delete/getAll/getByLookupKey/setSelected. Stores the two
   baselines workContentHash + personalContentHash (the 3-way merge basis).
+  DB_VERSION=2: added `label_at_sync` column; onUpgrade is now ADDITIVE
+  (ALTER TABLE ADD COLUMN) — it no longer drops the table (dropping would
+  orphan every synced contact and break the delete guard / merge baseline).
+  SyncedContact carries labelAtSync (the applied label), mirroring
+  identifierAtSync, so a label change is detected without touching the hash.
 - `settings/SettingsStore.kt` — DataStore. workContactIdentifier (default "-wc"),
   validated non-empty (it is the delete safety guard). Also `label` (default
   "", KEY "work_contact_label"): optional contact-group title applied to every
@@ -66,12 +76,16 @@ profile, with a configurable surname suffix, and re-sync semantics
   ContentProviderOperation, MAX_BATCH 450; both take optional `label` arg and
   write a GroupMembership row via groupIdForLabel, which find-or-creates a
   Group with that title in our local account; blank label = no row),
+  applyLabel(rawId,label) (label-only update: replace/remove the GroupMembership
+  row WITHOUT rewriting name/phones/emails — used by the resync label pass),
   renameSurname, deleteIfOwned (guard:
   isOwnedByUs + familyEndsWith suffix), personalHashFromProvider (reads live
   rows, strips suffix), readPhotoBytes (streams from photo_uri).
 - `sync/SyncEngine.kt` — orchestration + decision table:
   * syncSelection(selected, searchTerm): create/update newly selected.
-  * resync(): suffix-rename pass -> refetch each tracked -> 5a delete-with-guard
+  * resync(): suffix-rename pass -> label pass (applyLabel where
+    labelAtSync != current label; label is NOT in the hash so a label-only
+    change is otherwise missed) -> refetch each tracked -> 5a delete-with-guard
     (deleted-from-work OR deselected), 5b update (work changed, personal
     untouched), personal-only edit (keep), 5c conflict (both changed -> ask).
     SAFETY: if there ARE tracked contacts but the whole work channel returns

@@ -181,7 +181,7 @@ class WorkContactsRepository(context: Context) {
             Uri.withAppendedPath(Contacts.ENTERPRISE_CONTENT_FILTER_URI, Uri.encode(term))
         )
         val out = ArrayList<Base>()
-        resolver.query(uri, null, null, null, null)?.use { c ->
+        safeQuery(uri, CONTACTS_PROJECTION)?.use { c ->
             val idIdx = c.getColumnIndex(Contacts._ID)
             val lookupIdx = c.getColumnIndex(Contacts.LOOKUP_KEY)
             val nameIdx = c.getColumnIndex(Contacts.DISPLAY_NAME_PRIMARY)
@@ -210,7 +210,7 @@ class WorkContactsRepository(context: Context) {
             Uri.withAppendedPath(Phone.ENTERPRISE_CONTENT_FILTER_URI, Uri.encode(term))
         )
         val out = ArrayList<DetailRow<WorkPhone>>()
-        resolver.query(uri, null, null, null, null)?.use { c ->
+        safeQuery(uri, PHONE_PROJECTION)?.use { c ->
             val lookupIdx = c.getColumnIndex(Phone.LOOKUP_KEY)
             val cidIdx = c.getColumnIndex(Phone.CONTACT_ID)
             val numIdx = c.getColumnIndex(Phone.NUMBER)   // data1
@@ -237,7 +237,7 @@ class WorkContactsRepository(context: Context) {
             Uri.withAppendedPath(Email.ENTERPRISE_CONTENT_FILTER_URI, Uri.encode(term))
         )
         val out = ArrayList<DetailRow<WorkEmail>>()
-        resolver.query(uri, null, null, null, null)?.use { c ->
+        safeQuery(uri, EMAIL_PROJECTION)?.use { c ->
             val lookupIdx = c.getColumnIndex(Email.LOOKUP_KEY)
             val cidIdx = c.getColumnIndex(Email.CONTACT_ID)
             val addrIdx = c.getColumnIndex(Email.ADDRESS)  // data1
@@ -269,6 +269,30 @@ class WorkContactsRepository(context: Context) {
 
     // --- cursor helpers ---
 
+    /**
+     * Run an enterprise-filter query, tolerating a work profile that is turned
+     * OFF / paused (or whose cross-profile search has been disabled).
+     *
+     * When the work profile is off, the cross-profile ContactsProvider proxy is
+     * unavailable and the query does not return an empty cursor — it throws a
+     * provider-side RuntimeException proxied back over Binder (observed as
+     * "IllegalStateException: column id is missing in the returned cursor", and
+     * on other builds as SecurityException/IllegalArgumentException). We treat
+     * all of these as "work channel unavailable" and return null so callers see
+     * no rows instead of crashing. The sync engine's channel-unavailable guard
+     * then ensures nothing is deleted in this state.
+     */
+    private fun safeQuery(uri: Uri, projection: Array<String>): Cursor? =
+        try {
+            resolver.query(uri, projection, null, null, null)
+        } catch (t: RuntimeException) {
+            android.util.Log.w(
+                TAG,
+                "Enterprise query failed (work profile off/unavailable?): ${t.javaClass.simpleName}: ${t.message}"
+            )
+            null
+        }
+
     private fun str(c: Cursor, idx: Int): String? =
         if (idx >= 0 && !c.isNull(idx)) c.getString(idx) else null
 
@@ -279,6 +303,46 @@ class WorkContactsRepository(context: Context) {
         if (idx >= 0 && !c.isNull(idx)) c.getInt(idx) else 0
 
     companion object {
+        private const val TAG = "WorkContactsRepo"
+
+        /**
+         * Explicit projections for the enterprise filter queries.
+         *
+         * A NULL projection crashes on some devices/OS versions with
+         * "column id is missing in the returned cursor": the cross-profile
+         * ("enterprise") ContactsProvider proxy requires the result cursor to
+         * expose the _ID column, and with a null projection the proxied cursor
+         * can come back without it. Passing an explicit projection whose FIRST
+         * column is _ID avoids the crash and also limits the data crossing the
+         * profile boundary to exactly what we use.
+         */
+        private val CONTACTS_PROJECTION = arrayOf(
+            Contacts._ID,
+            Contacts.LOOKUP_KEY,
+            Contacts.DISPLAY_NAME_PRIMARY,
+            Contacts.DISPLAY_NAME_ALTERNATIVE,
+            Contacts.PHOTO_URI,
+            Contacts.CONTACT_LAST_UPDATED_TIMESTAMP
+        )
+
+        private val PHONE_PROJECTION = arrayOf(
+            Phone._ID,
+            Phone.LOOKUP_KEY,
+            Phone.CONTACT_ID,
+            Phone.NUMBER,  // data1
+            Phone.TYPE,    // data2
+            Phone.LABEL    // data3
+        )
+
+        private val EMAIL_PROJECTION = arrayOf(
+            Email._ID,
+            Email.LOOKUP_KEY,
+            Email.CONTACT_ID,
+            Email.ADDRESS, // data1
+            Email.TYPE,    // data2
+            Email.LABEL    // data3
+        )
+
         /** Seed terms for sweepAll: a..z then 0..9. */
         val SWEEP_SEEDS: List<String> =
             ('a'..'z').map { it.toString() } + ('0'..'9').map { it.toString() }

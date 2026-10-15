@@ -20,6 +20,7 @@ data class SyncedContact(
     val givenName: String?,
     val searchTerm: String,          // a term that re-finds this contact in the enterprise filter
     val identifierAtSync: String,    // suffix value used at last write
+    val labelAtSync: String = "",    // contact-group label applied at last write ("" = none)
     val workContentHash: String,
     val workUpdatedTimestamp: Long,
     val personalContentHash: String,
