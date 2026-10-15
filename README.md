@@ -1,62 +1,88 @@
-# Work Contacts Probe
+# Work Contacts Sync
 
-A **throwaway diagnostic app**. Its only job is to find out, on *your* specific
-device and MDM, what the Android cross-profile ("enterprise") contacts directory
-actually returns — the same lookup channel that the stock Messages/Dialer apps
-use to show work contacts in the personal profile.
+An Android app that copies selected **work-profile** contacts into your
+**personal profile** — with a configurable surname suffix so they're easy to
+spot, and full re-sync semantics (add / update / delete / conflict).
 
-We build this **before** committing to the full "sync work contacts to personal"
-app, because the whole no-MDM approach depends on:
+It works **without MDM / device-admin control**. The app installs only in the
+personal profile and reads work contacts through Android's cross-profile
+("enterprise") contacts filter — the same lookup channel the stock
+Messages/Dialer apps use to show work contacts in the personal profile.
 
-1. whether the enterprise contact filter returns anything at all on your device, and
-2. **which fields** it exposes (that decides how much of "copy all details" is possible).
-
-This app installs **only in the personal profile**. It does not write anything.
-It only reads via the enterprise filter and prints what it sees.
+> The viability of the no-MDM approach, and exactly which fields are available,
+> were confirmed empirically with a throwaway probe app before this app was
+> built. See [`DESIGN.md`](DESIGN.md) §1 for the probe findings.
 
 ---
 
 ## What it does
 
-When you type a search term and tap **Probe**, it queries, in the personal profile:
+- **Discovers work contacts** without a "list all" API. On startup (after you
+  grant contacts permission) it auto-sweeps the enterprise filter with
+  single-character seeds (`a`–`z`, then `0`–`9`) and unions the results,
+  de-duplicated by lookup key, to approximate a full list. A search box also
+  does targeted lookups, and a **Load all** button re-runs the sweep.
+- **Multi-select** which contacts to sync (Select all / Deselect all, with a
+  live "N selected" count). Already-synced rows show a `✓ synced` badge.
+- **Copies the available fields** into a dedicated local account:
+  display name, structured name, **all phone numbers**, **all emails**, and the
+  **photo**.
+- **Appends a configurable suffix** to the surname (default `-wc`) so synced
+  work contacts are visually distinct and safely identifiable.
+- **Re-syncs** on demand with full add/update/delete/conflict handling (below).
+- **Deletes safely** — synced contacts can be removed individually or all at
+  once, behind a strict ownership + suffix guard so a genuine personal contact
+  can never be deleted.
 
-- `ContactsContract.Directory.ENTERPRISE_CONTENT_URI` — lists the visible
-  directories, including the work-profile ("enterprise") directory if present.
-- `Contacts.ENTERPRISE_CONTENT_FILTER_URI/<term>`
-- `Phone.ENTERPRISE_CONTENT_FILTER_URI/<term>`
-- `Email.ENTERPRISE_CONTENT_FILTER_URI/<term>`
+### Field coverage (a hard platform limit)
 
-For each query it dumps the **full column set** the provider returns (projection
-is left null on purpose, so we see the OEM's real default columns) plus every
-non-null value for each matched row. Blob columns (e.g. photo) are reported as
-`<blob N bytes>`.
+The cross-profile channel exposes **name + all phones + all emails + photo**
+only. Organization, job title, notes, postal address, website, IM, and events
+are **not readable** cross-profile without MDM — the generic contacts Data
+table returns a null cursor. This is a platform constraint, not a missing
+feature. (Postal address via `StructuredPostal.ENTERPRISE_CONTENT_FILTER_URI`
+is a deferred TODO — not yet probed.)
 
-> The enterprise URIs are **filter**-only: you must supply a search string.
-> There is no public API to enumerate *all* work contacts. That limitation is
-> exactly what we are confirming the shape of here.
+---
+
+## Re-sync semantics
+
+On **Re-sync all**, for every tracked contact:
+
+| Work side | Personal copy | Result |
+|---|---|---|
+| unchanged | unchanged | nothing |
+| changed   | unchanged | personal copy auto-updated from work |
+| unchanged | edited by you | your personal edit kept; suffix re-applied if needed |
+| changed   | edited by you | **conflict** → you choose *Take work* or *Keep personal* |
+| removed from work, **or** deselected | — | deleted from personal (behind the safety guard) |
+
+**Deletion safety guard** — a synced contact is only deleted if all of:
+1. its surname ends with the current suffix, **and**
+2. the RawContact belongs to this app's dedicated local account, **and**
+3. a sync-state row we created points at it.
+
+**Channel-unavailable protection** — if contacts are tracked but the entire
+work channel returns nothing (e.g. an admin disabled cross-profile search),
+the app treats it as "channel unavailable" and performs **no deletions**.
+
+Changing the suffix in Settings triggers a rename pass that rewrites the
+surname of every synced contact to use the new suffix.
 
 ---
 
 ## Requirements
 
-- A device/profile where a **work profile** exists and cross-profile contact
-  search is enabled (if stock Messages already shows work contacts, it's enabled).
-- Android 11+ (minSdk 30). The enterprise filter URIs exist from Android 7, but
-  this probe targets 30+ for the modern runtime-permission flow.
-- Android SDK with platform `android-34` and build-tools `34.0.0` (the module
-  targets `compileSdk = 34`).
+- A device with a **work profile** where cross-profile contact search is
+  enabled (if stock Messages already shows work contacts, it's enabled).
+- Android 11+ (minSdk 30), compileSdk 34.
+- Android SDK with platform `android-34` and build-tools `34.0.0`, JDK 17.
 
 ---
 
 ## Build
 
-### Option A — Android Studio (easiest)
-1. Open the project folder in Android Studio.
-2. Let it sync Gradle (it will download Android Gradle Plugin + Kotlin on first run).
-3. Run the `app` configuration onto your device **in the personal profile**.
-
-### Option B — command line
-A Gradle wrapper is included (`./gradlew`, pinned to Gradle 8.9).
+A Gradle wrapper is included (pinned to Gradle 8.9).
 
 ```bash
 # from the project root
@@ -64,87 +90,115 @@ A Gradle wrapper is included (`./gradlew`, pinned to Gradle 8.9).
 ```
 
 The APK is produced at:
+
 ```
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-`local.properties` already points `sdk.dir` at the SDK. If your SDK is elsewhere,
-edit that file.
+Set your SDK location in `local.properties` (not committed):
 
-> First build downloads AGP, Kotlin, and dependencies from Google/Maven Central,
-> which needs network access and a few hundred MB of free disk.
+```
+sdk.dir=/path/to/Android/Sdk
+```
+
+> If a build fails with "Cannot lock checksums cache", stop any stray Gradle
+> daemon: `./gradlew --stop` (and if needed `rm -rf .gradle`).
 
 ---
 
-## Install into the PERSONAL profile
+## Install (PERSONAL profile)
 
-The probe must run in the **personal** profile (that's where the sync target
-address book lives, and where cross-profile lookup is consumed).
+The app must run in the **personal** profile — that's where the sync target
+address book lives and where cross-profile lookup is consumed.
 
 ```bash
-# installs into the default (personal) user
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
 
-If you have multiple users and need to be explicit, list users and install for
-the personal user id (usually 0):
-
-```bash
+# if you have multiple users, target the personal user (usually 0) explicitly:
 adb shell pm list users
 adb install --user 0 -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Launch **Work Contacts Probe**, grant the contacts permission when prompted,
-type part of a known **work** contact's name, and tap **Probe**.
+Launch **Work Contacts Sync**, grant the contacts permission, let it sweep (or
+search), select the contacts you want, and tap **Sync selected**.
+
+> `versionCode`/`versionName` are derived from build time, so every build is
+> strictly newer and `adb install -r` always upgrades.
 
 ---
 
-## How to read the output
+## How it works
 
-### 1. Directory table section
-- If you see a directory row with a large numeric `_id` (enterprise directories
-  live in a reserved high-ID range) and a package/display name pointing at the
-  work profile, cross-profile contacts are visible. Good sign.
-- If it's empty or only shows local/default directories, the work directory is
-  not exposed to this app — the no-MDM approach may not work on this device.
+```
+┌──────────────────── PERSONAL PROFILE (only install) ─────────────────────┐
+│                                                                            │
+│   UI  ──▶  Sync Engine  ──▶  Personal ContactsProvider                     │
+│  (search/pick,  (diff & decisions,   (WRITE_CONTACTS, dedicated local      │
+│   settings,      suffix logic,        RawContact account)                  │
+│   conflicts)     batched writes)                                           │
+│     ▲                │ reads                                                │
+│     │                ▼                                                      │
+│  Sync-state DB ◀─ WorkContactsRepository ──enterprise filter──▶ System     │
+│  (SQLite)         (ENTERPRISE_*_FILTER,     directory=1000000000  broker → │
+│                    read-only)                                    work prof │
+└────────────────────────────────────────────────────────────────────────────┘
+```
 
-### 2. The three `*_ENTERPRISE_CONTENT_FILTER_URI` sections
-For each, note:
+- **WorkContactsRepository** — the only code that touches the enterprise filter
+  URIs; turns cursors into `WorkContact` domain objects (read-only).
+- **Sync-state DB** — SQLite store of what was synced and from what. Holds two
+  content-hash baselines (work + personal) that drive the three-way merge.
+- **Sync Engine** — given work snapshot + personal state + DB baseline, produces
+  create/update/delete/conflict actions.
+- **ContactWriter** — applies actions via batched `ContentProviderOperation`
+  into a dedicated local account
+  (`com.example.workcontactssync.local`), keeping work data out of cloud backup
+  and giving the deletion guard a strong ownership signal.
+- **UI** — classic Android Views: search & multi-select, a Settings page for the
+  suffix, and conflict-resolution dialogs.
 
-- **`row count`** — did your work contact actually come back? `0` means either
-  no match for that term, or cross-profile search is disabled by your MDM.
-- **`returned columns (...)`** — this is the key result. It's the exact set of
-  fields the channel will give us. Look for which of these appear with values:
-  - `display_name` / `DISPLAY_NAME_PRIMARY` — name (expected)
-  - `data1` on the Phone query — phone number (expected)
-  - `data1` on the Email query — email address (expected)
-  - `photo_thumb_uri` / `photo_uri` — a photo may be available
-  - **Anything beyond that** (postal address, organization, title, notes, IM,
-    website, structured name parts) — if these columns are present *with values*,
-    we can copy more than just the caller-ID basics.
-
-### What the result tells us for the full app
-- **Best case:** rows return with name + phone + email + photo + extra structured
-  fields → "copy all available details" is largely achievable.
-- **Typical case:** name + phone(s) + email + photo only → the full app can sync
-  those; postal/org/notes won't be available via this channel.
-- **Blocked case:** null cursors / zero rows / no enterprise directory → your MDM
-  has disabled cross-profile contact search, and this approach cannot work without
-  an MDM policy change. We'd need to revisit options.
-
-Copy the probe output back and we'll use it to finalize the real design
-(step 2: revise the plan based on actual field coverage).
+See [`DESIGN.md`](DESIGN.md) for the full design, the empirical platform
+findings, and the requirement-by-requirement rationale.
 
 ---
 
-## Notes / caveats
+## Project layout
 
-- This probe intentionally uses **no AndroidX libraries** — just the platform SDK
-  (`android.app.Activity` + classic `requestPermissions`). That keeps it tiny and
-  dependency-free. The real app can use AndroidX normally.
-- The manifest declares a messaging-style intent filter (`APP_MESSAGING`,
-  `smsto`/`sms`) to mirror the "identify as a messaging app" posture discussed
-  for the full app. On most devices the enterprise filter is available to any app
-  holding `READ_CONTACTS`; the messaging identity is there to maximize
-  compatibility, not strictly required for the probe to work.
-- Nothing is written to any contacts database. This tool is read-only.
+```
+app/src/main/java/com/example/workcontactssync/
+  work/WorkContact.kt             domain models + content hashing
+  work/WorkContactsRepository.kt  enterprise-filter reads (search / sweep)
+  db/SyncedContact.kt             sync-state model + SyncState enum
+  db/SyncStateStore.kt            SQLite store + DAO (baselines)
+  settings/SettingsStore.kt       DataStore: configurable suffix
+  contacts/ContactWriter.kt       batched writes to the local account
+  sync/SyncEngine.kt              orchestration + decision table
+  ui/MainActivity.kt              search, multi-select, sync actions
+  ui/WorkContactsAdapter.kt       RecyclerView adapter (checkboxes, badges)
+  ui/SettingsActivity.kt          suffix setting + build date
+probe-archive/MainActivity.kt     archived diagnostic probe (not compiled)
+DESIGN.md                         full design + empirical constraints
+```
+
+> Implementation note: the app uses a hand-written `SQLiteOpenHelper` and
+> classic Android Views rather than Room/Compose, to keep the build free of
+> annotation-processor / compiler-version lockstep. Architecture, data model,
+> and requirements are unchanged from `DESIGN.md`.
+
+---
+
+## Limitations
+
+- **Field ceiling:** name + phones + emails + photo only (platform limit).
+- **Discovery is search/sweep-based**, not a guaranteed-complete enumeration;
+  Latin-script names are well covered by the `a`–`z` + `0`–`9` seed set.
+- **Depends on cross-profile contact search staying enabled** by the work-
+  profile admin. If disabled, the filters return nothing and sync halts safely
+  without deleting anything.
+- Non-numeric phone values (e.g. `Employee`) are copied verbatim.
+
+---
+
+## License
+
+See [`LICENSE`](LICENSE).
