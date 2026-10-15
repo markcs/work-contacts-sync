@@ -67,9 +67,11 @@ profile, with a configurable surname suffix, and re-sync semantics
   SyncedContact carries labelAtSync (the applied label), mirroring
   identifierAtSync, so a label change is detected without touching the hash.
 - `settings/SettingsStore.kt` — DataStore. workContactIdentifier (default "-wc"),
-  validated non-empty (it is the delete safety guard). Also `label` (default
-  "", KEY "work_contact_label"): optional contact-group title applied to every
-  synced contact; blank = not applied (no validation).
+  OPTIONAL / may be empty (trimmed only, no non-empty validation). Deletion
+  safety does NOT depend on it: deleteIfOwned is primarily guarded by the
+  dedicated-local-account ownership check, so an empty suffix is safe. Also
+  `label` (default "", KEY "work_contact_label"): optional contact-group title
+  applied to every synced contact; blank = not applied (no validation).
 - `contacts/ContactWriter.kt` — writes to a dedicated LOCAL account
   (ACCOUNT_TYPE="com.markcs.workcontactssync.local",
   ACCOUNT_NAME="Work Contacts (synced)"). createContact/updateContact (batched

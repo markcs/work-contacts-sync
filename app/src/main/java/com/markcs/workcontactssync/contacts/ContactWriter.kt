@@ -242,6 +242,10 @@ class ContactWriter(context: Context) {
      * Returns true if deleted, false if the guard blocked it.
      */
     fun deleteIfOwned(rawContactId: Long, expectedIdentifier: String): Boolean {
+        // Primary guard: the RawContact must live in OUR dedicated local
+        // account. This alone prevents touching any genuine personal contact,
+        // and is what keeps deletion safe even when the suffix is empty (an
+        // empty suffix makes the familyEndsWith check below vacuously true).
         if (!isOwnedByUs(rawContactId)) return false
         if (!familyEndsWith(rawContactId, expectedIdentifier)) return false
 

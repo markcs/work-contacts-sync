@@ -28,7 +28,8 @@ Messages/Dialer apps use to show work contacts in the personal profile.
   display name, structured name, **all phone numbers**, **all emails**, and the
   **photo**.
 - **Appends a configurable suffix** to the surname (default `-wc`) so synced
-  work contacts are visually distinct and safely identifiable.
+  work contacts are visually distinct and safely identifiable. The suffix is
+  optional — leave it empty to append nothing.
 - **Applies an optional label** (a contact group) to every synced contact so
   they can be found grouped together. Configured in Settings; leave it empty to
   apply no label.
@@ -61,8 +62,11 @@ On **Re-sync all**, for every tracked contact:
 | removed from work, **or** deselected | — | deleted from personal (behind the safety guard) |
 
 **Deletion safety guard** — a synced contact is only deleted if all of:
-1. its surname ends with the current suffix, **and**
-2. the RawContact belongs to this app's dedicated local account, **and**
+1. the RawContact belongs to this app's dedicated local account (the primary
+   guard — a genuine personal contact lives in a different account and can
+   never match), **and**
+2. its surname ends with the current suffix (skipped automatically when the
+   suffix is empty), **and**
 3. a sync-state row we created points at it.
 
 **Channel-unavailable protection** — if contacts are tracked but the entire

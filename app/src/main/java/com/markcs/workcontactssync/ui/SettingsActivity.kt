@@ -41,10 +41,12 @@ class SettingsActivity : AppCompatActivity() {
             setPadding(0, 0, 0, 8)
         })
         root.addView(TextView(this).apply {
-            text = "Appended to the surname of every synced contact to avoid " +
-                "overwriting personal contacts. Changing it will rename existing " +
-                "synced contacts on the next Re-sync all. It must not be empty — " +
-                "it is also the safety guard that prevents deleting your own contacts."
+            text = "Appended to the surname of every synced contact to tell them " +
+                "apart from personal contacts. Changing it will rename existing " +
+                "synced contacts on the next Re-sync all. Optional — leave it empty " +
+                "to append nothing. (Synced contacts are still safely identified by " +
+                "their own dedicated account, so deletions never touch your personal " +
+                "contacts.)"
             textSize = 13f
             alpha = 0.75f
             setPadding(0, 0, 0, 16)
@@ -81,20 +83,17 @@ class SettingsActivity : AppCompatActivity() {
             text = "Save"
             setOnClickListener {
                 val value = input.text.toString().trim()
-                if (value.isEmpty()) {
-                    Toast.makeText(this@SettingsActivity, "Identifier cannot be empty", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
                 val labelValue = labelInput.text.toString().trim()
                 lifecycleScope.launch {
                     withContext(Dispatchers.IO) {
                         settings.setIdentifier(value)
                         settings.setLabel(labelValue)
                     }
+                    val suffixMsg = if (value.isEmpty()) "no suffix" else "\"$value\""
                     val labelMsg = if (labelValue.isEmpty()) "no label" else "label \"$labelValue\""
                     Toast.makeText(
                         this@SettingsActivity,
-                        "Saved \"$value\" ($labelMsg). Run Re-sync all to apply.",
+                        "Saved $suffixMsg ($labelMsg). Run Re-sync all to apply.",
                         Toast.LENGTH_LONG
                     ).show()
                 }

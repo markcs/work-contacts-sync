@@ -26,13 +26,14 @@ class SettingsStore(private val context: Context) {
         context.dataStore.data.map { it[KEY_IDENTIFIER] ?: DEFAULT_IDENTIFIER }.first()
 
     /**
-     * The suffix is the deletion safety guard (Req 5a), so it must be
-     * non-empty. Blank values are rejected.
+     * The suffix appended to the surname of every synced contact. It MAY be
+     * empty — an empty suffix means "append nothing". Deletion safety does not
+     * depend on the suffix: `deleteIfOwned` is primarily guarded by the
+     * dedicated-local-account ownership check, so an empty suffix still cannot
+     * delete a genuine personal contact (it lives in a different account).
      */
     suspend fun setIdentifier(value: String) {
-        val trimmed = value.trim()
-        require(trimmed.isNotEmpty()) { "Work contact identifier must not be empty" }
-        context.dataStore.edit { it[KEY_IDENTIFIER] = trimmed }
+        context.dataStore.edit { it[KEY_IDENTIFIER] = value.trim() }
     }
 
     /**
